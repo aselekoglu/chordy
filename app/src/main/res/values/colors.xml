@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="spotify_green">#1DB954</color>
+    <color name="spotify_green_dark">#128540</color>
+    <color name="background_light">#FFF8FAF9</color>
+    <color name="background_dark">#FF101513</color>
+    <color name="text_primary_light">#FF0B1110</color>
+    <color name="text_primary_dark">#FFE6F4ED</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

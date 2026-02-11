@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">Spotify to Chords</string>
+    <string name="title_main">Spotify Track to Chords</string>
+    <string name="subtitle_main">Paste a Spotify track URL/URI/ID and estimate visible chords from Spotify audio analysis.</string>
+    <string name="label_client_id">Spotify Client ID</string>
+    <string name="hint_client_id">e.g. 6f1d2a... (from Spotify Developer Dashboard)</string>
+    <string name="label_client_secret">Spotify Client Secret</string>
+    <string name="hint_client_secret">Required for client credentials token</string>
+    <string name="label_track_input">Spotify Track URL / URI / ID</string>
+    <string name="hint_track_input">https://open.spotify.com/track/...</string>
+    <string name="action_fetch_chords">Fetch and Convert to Chords</string>
+    <string name="status_idle">Ready. Enter credentials and a track to start.</string>
+    <string name="status_loading">Fetching Spotify data and estimating chords...</string>
+    <string name="placeholder_output">Chord output will appear here.</string>
+    <string name="error_missing_credentials">Spotify Client ID and Client Secret are required.</string>
+    <string name="error_missing_track">Please enter a Spotify track URL, URI, or ID.</string>
+    <string name="error_invalid_track">Could not parse track ID. Use a valid Spotify track link/URI/ID.</string>
+    <string name="lyrics_not_available">Lyrics are not included because Spotify Web API does not provide lyrics in this flow.</string>
+</resources>
