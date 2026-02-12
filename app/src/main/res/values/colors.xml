@@ -3,9 +3,16 @@
     <color name="spotify_green">#1DB954</color>
     <color name="spotify_green_dark">#128540</color>
     <color name="background_light">#FFF8FAF9</color>
-    <color name="background_dark">#FF101513</color>
+    <color name="background_dark">#FF050607</color>
+    <color name="surface_dark">#FF0E1113</color>
+    <color name="surface_dark_soft">#FF171B20</color>
+    <color name="divider_dark">#FF242A2E</color>
     <color name="text_primary_light">#FF0B1110</color>
-    <color name="text_primary_dark">#FFE6F4ED</color>
+    <color name="text_primary_dark">#FFE8EAED</color>
+    <color name="text_secondary_dark">#FFA1A7AE</color>
+    <color name="text_muted_dark">#FF6F767D</color>
+    <color name="danger_red">#FFE74C3C</color>
+    <color name="amber">#FFD3B51E</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

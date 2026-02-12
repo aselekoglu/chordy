@@ -9,5 +9,7 @@
         <item name="android:windowBackground">@color/background_dark</item>
         <item name="android:textColorPrimary">@color/text_primary_dark</item>
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <item name="android:navigationBarColor">@color/background_dark</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 </resources>

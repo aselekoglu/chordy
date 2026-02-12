@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="6dp"
+    android:background="@drawable/bg_card_dark"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <ImageView
+        android:id="@+id/imageLibraryCover"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:background="@drawable/bg_track_cover_placeholder"
+        android:scaleType="centerCrop" />
+
+    <TextView
+        android:id="@+id/textLibrarySong"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxLines="1"
+        android:textColor="@color/text_primary_dark"
+        android:textSize="19sp" />
+
+    <TextView
+        android:id="@+id/textLibraryArtist"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="1"
+        android:textColor="@color/text_secondary_dark"
+        android:textSize="15sp" />
+
+    <TextView
+        android:id="@+id/textLibraryMeta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:maxLines="1"
+        android:textColor="@color/text_muted_dark"
+        android:textSize="13sp" />
+</LinearLayout>

@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
 import kotlin.math.min
 
@@ -87,11 +88,71 @@ class SpotifyApiClient(
         )
         val json = JSONObject(response)
         return AudioFeatures(
+            id = json.optString("id", trackId),
             key = json.optInt("key", -1),
             mode = json.optInt("mode", -1),
             tempo = json.optDouble("tempo", Double.NaN),
             timeSignature = json.optInt("time_signature", -1)
         )
+    }
+
+    fun getAudioFeaturesBatch(accessToken: String, trackIds: List<String>): Map<String, AudioFeatures> {
+        if (trackIds.isEmpty()) return emptyMap()
+        val joined = trackIds.joinToString(",")
+        val response = performRequest(
+            method = "GET",
+            url = "https://api.spotify.com/v1/audio-features?ids=$joined",
+            bearerToken = accessToken
+        )
+        val json = JSONObject(response)
+        val featuresArray = json.optJSONArray("audio_features") ?: JSONArray()
+        val map = LinkedHashMap<String, AudioFeatures>()
+        for (index in 0 until featuresArray.length()) {
+            val featureJson = featuresArray.optJSONObject(index) ?: continue
+            val id = featureJson.optString("id").orEmpty()
+            if (id.isBlank()) continue
+            map[id] = AudioFeatures(
+                id = id,
+                key = featureJson.optInt("key", -1),
+                mode = featureJson.optInt("mode", -1),
+                tempo = featureJson.optDouble("tempo", Double.NaN),
+                timeSignature = featureJson.optInt("time_signature", -1)
+            )
+        }
+        return map
+    }
+
+    fun searchTracks(accessToken: String, query: String, limit: Int = 15): List<SearchTrack> {
+        val encodedQuery = URLEncoder.encode(query, Charsets.UTF_8.name())
+        val response = performRequest(
+            method = "GET",
+            url = "https://api.spotify.com/v1/search?type=track&market=US&limit=$limit&q=$encodedQuery",
+            bearerToken = accessToken
+        )
+        val root = JSONObject(response)
+        val tracksArray = root.optJSONObject("tracks")?.optJSONArray("items") ?: JSONArray()
+        val tracks = mutableListOf<SearchTrack>()
+        for (index in 0 until tracksArray.length()) {
+            val trackJson = tracksArray.optJSONObject(index) ?: continue
+            val id = trackJson.optString("id").orEmpty()
+            if (id.isBlank()) continue
+            val artistsArray = trackJson.optJSONArray("artists") ?: JSONArray()
+            val firstArtist = artistsArray.optJSONObject(0)?.optString("name").orEmpty()
+            val albumJson = trackJson.optJSONObject("album")
+            val album = albumJson?.optString("name")?.takeIf { it.isNotBlank() }
+            val images = albumJson?.optJSONArray("images") ?: JSONArray()
+            val imageUrl = images.optJSONObject(1)?.optString("url")
+                ?: images.optJSONObject(0)?.optString("url")
+            tracks += SearchTrack(
+                id = id,
+                name = trackJson.optString("name", "Unknown"),
+                artist = firstArtist.ifBlank { "Unknown Artist" },
+                album = album,
+                albumImageUrl = imageUrl,
+                previewUrl = trackJson.optString("preview_url").takeIf { !it.isNullOrBlank() }
+            )
+        }
+        return tracks
     }
 
     private fun parseTimedElements(array: JSONArray?): List<TimedElement> {

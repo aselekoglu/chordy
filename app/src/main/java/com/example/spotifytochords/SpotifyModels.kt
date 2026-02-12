@@ -26,6 +26,7 @@ data class AudioSegment(
 )
 
 data class AudioFeatures(
+    val id: String? = null,
     val key: Int,
     val mode: Int,
     val tempo: Double,
@@ -44,4 +45,29 @@ data class ChordProgression(
     val keyLabel: String?,
     val tempoBpm: Double?,
     val timeSignature: Int?
+)
+
+data class SearchTrack(
+    val id: String,
+    val name: String,
+    val artist: String,
+    val album: String?,
+    val albumImageUrl: String?,
+    val previewUrl: String?,
+    val keyLabel: String? = null,
+    val tempoBpm: Double? = null
+)
+
+data class FeedPost(
+    val username: String,
+    val postedAgo: String,
+    val likeCount: Int,
+    val commentCount: Int,
+    val saved: Boolean,
+    val track: SearchTrack
+)
+
+data class PlayerTrackData(
+    val track: SearchTrack,
+    val progression: ChordProgression
 )
