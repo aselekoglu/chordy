@@ -129,7 +129,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="12dp"
-        android:text="@string/button_edit_credentials" />
+        android:text="@string/spotify_login" />
 
     <View
         android:layout_width="match_parent"
@@ -151,7 +151,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingHorizontal="16dp"
-        android:text="@string/credentials_required"
+        android:text="@string/spotify_login_required"
         android:textColor="@color/text_secondary_dark"
         android:textSize="14sp" />
 

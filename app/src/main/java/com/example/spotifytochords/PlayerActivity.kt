@@ -9,6 +9,7 @@ import android.widget.ImageButton
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import java.io.IOException
 import java.util.concurrent.Executors
 import kotlin.math.max
 
@@ -142,12 +143,26 @@ class PlayerActivity : AppCompatActivity() {
                 runOnUiThread {
                     playerData = loaded
                     textStatus.text = getString(R.string.feature_limited_preview)
-                    textKeyTempo.text = if (loaded.track.keyLabel != null && loaded.track.tempoBpm != null) {
-                        "${loaded.track.keyLabel} | ${loaded.track.tempoBpm!!.toInt()} bpm"
+                    val keyLabel = loaded.track.keyLabel
+                    val tempo = loaded.track.tempoBpm
+                    textKeyTempo.text = if (keyLabel != null && tempo != null) {
+                        "${keyLabel} | ${tempo.toInt()} bpm"
                     } else {
                         getString(R.string.unknown_key_bpm)
                     }
                     updateChordsForPlayback((mediaPlayer?.currentPosition ?: 0) / 1000.0)
+                }
+            } catch (exception: SpotifyApiException) {
+                runOnUiThread {
+                    textStatus.text = when (exception.statusCode) {
+                        401 -> getString(R.string.spotify_login_required)
+                        403 -> getString(R.string.audio_api_forbidden)
+                        else -> getString(R.string.error_generic)
+                    }
+                }
+            } catch (_: IllegalStateException) {
+                runOnUiThread {
+                    textStatus.text = getString(R.string.spotify_login_required)
                 }
             } catch (_: Exception) {
                 runOnUiThread {
@@ -158,20 +173,25 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun preparePreview(previewUrl: String?) {
-        if (previewUrl.isNullOrBlank()) {
+        val safePreviewUrl = previewUrl
+            ?.trim()
+            ?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+        if (safePreviewUrl.isNullOrBlank()) {
             buttonPlayPause.isEnabled = false
             buttonRestart.isEnabled = false
             textStatus.text = getString(R.string.playing_unavailable)
             return
         }
-        val player = MediaPlayer().apply {
-            setAudioAttributes(
+
+        val player = MediaPlayer()
+        try {
+            player.setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build()
             )
-            setDataSource(previewUrl)
-            setOnPreparedListener { mp ->
+            player.setDataSource(safePreviewUrl)
+            player.setOnPreparedListener { mp ->
                 isPrepared = true
                 seekPlayback.max = max(30_000, mp.duration)
                 textTotalTime.text = formatMs(mp.duration)
@@ -180,12 +200,28 @@ class PlayerActivity : AppCompatActivity() {
                 buttonPlayPause.setImageResource(android.R.drawable.ic_media_pause)
                 mainHandler.post(updateRunnable)
             }
-            setOnCompletionListener {
+            player.setOnCompletionListener {
                 buttonPlayPause.setImageResource(android.R.drawable.ic_media_play)
             }
-            prepareAsync()
+            player.setOnErrorListener { _, _, _ ->
+                buttonPlayPause.isEnabled = false
+                buttonRestart.isEnabled = false
+                textStatus.text = getString(R.string.playing_unavailable)
+                true
+            }
+            player.prepareAsync()
+            mediaPlayer = player
+        } catch (_: IOException) {
+            player.release()
+            buttonPlayPause.isEnabled = false
+            buttonRestart.isEnabled = false
+            textStatus.text = getString(R.string.playing_unavailable)
+        } catch (_: IllegalArgumentException) {
+            player.release()
+            buttonPlayPause.isEnabled = false
+            buttonRestart.isEnabled = false
+            textStatus.text = getString(R.string.playing_unavailable)
         }
-        mediaPlayer = player
     }
 
     private fun togglePlayback() {
@@ -214,13 +250,16 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun readTrackFromIntent(): SearchTrack? {
         val id = intent.getStringExtra(extraTrackId) ?: return null
+        val previewUrl = intent.getStringExtra(extraTrackPreview)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
         return SearchTrack(
             id = id,
             name = intent.getStringExtra(extraTrackName).orEmpty(),
             artist = intent.getStringExtra(extraTrackArtist).orEmpty(),
             album = intent.getStringExtra(extraTrackAlbum),
             albumImageUrl = intent.getStringExtra(extraTrackImage),
-            previewUrl = intent.getStringExtra(extraTrackPreview),
+            previewUrl = previewUrl,
             keyLabel = intent.getStringExtra(extraTrackKeyLabel),
             tempoBpm = intent.getDoubleExtra(extraTrackTempo, -1.0).takeIf { it >= 0.0 }
         )

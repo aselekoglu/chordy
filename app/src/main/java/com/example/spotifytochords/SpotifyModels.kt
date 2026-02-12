@@ -58,6 +58,28 @@ data class SearchTrack(
     val tempoBpm: Double? = null
 )
 
+data class SearchArtist(
+    val id: String,
+    val name: String,
+    val imageUrl: String?,
+    val followers: Int? = null
+)
+
+data class SearchAlbum(
+    val id: String,
+    val name: String,
+    val artist: String,
+    val imageUrl: String?,
+    val releaseDate: String? = null,
+    val totalTracks: Int? = null
+)
+
+sealed class SearchListItem {
+    data class TrackItem(val track: SearchTrack) : SearchListItem()
+    data class ArtistItem(val artist: SearchArtist) : SearchListItem()
+    data class AlbumItem(val album: SearchAlbum) : SearchListItem()
+}
+
 data class FeedPost(
     val username: String,
     val postedAgo: String,
@@ -70,4 +92,10 @@ data class FeedPost(
 data class PlayerTrackData(
     val track: SearchTrack,
     val progression: ChordProgression
+)
+
+data class SpotifyAuthToken(
+    val accessToken: String,
+    val refreshToken: String?,
+    val expiresInSec: Int
 )

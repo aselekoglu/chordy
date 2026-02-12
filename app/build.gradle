@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
@@ -7,8 +9,32 @@ def escapeBuildConfigValue = { String value ->
     value.replace("\\", "\\\\").replace("\"", "\\\"")
 }
 
-def spotifyClientId = (project.findProperty("SPOTIFY_CLIENT_ID") ?: System.getenv("SPOTIFY_CLIENT_ID") ?: "").toString()
-def spotifyClientSecret = (project.findProperty("SPOTIFY_CLIENT_SECRET") ?: System.getenv("SPOTIFY_CLIENT_SECRET") ?: "").toString()
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { stream ->
+        localProperties.load(stream)
+    }
+}
+
+def spotifyClientId = (
+    project.findProperty("SPOTIFY_CLIENT_ID")
+        ?: localProperties.getProperty("SPOTIFY_CLIENT_ID")
+        ?: System.getenv("SPOTIFY_CLIENT_ID")
+        ?: ""
+).toString()
+def spotifyClientSecret = (
+    project.findProperty("SPOTIFY_CLIENT_SECRET")
+        ?: localProperties.getProperty("SPOTIFY_CLIENT_SECRET")
+        ?: System.getenv("SPOTIFY_CLIENT_SECRET")
+        ?: ""
+).toString()
+def spotifyRedirectUri = (
+    project.findProperty("SPOTIFY_REDIRECT_URI")
+        ?: localProperties.getProperty("SPOTIFY_REDIRECT_URI")
+        ?: System.getenv("SPOTIFY_REDIRECT_URI")
+        ?: "spotifytochords://auth/callback"
+).toString()
 
 android {
     namespace 'com.example.spotifytochords'
@@ -25,6 +51,7 @@ android {
 
         buildConfigField "String", "SPOTIFY_CLIENT_ID", "\"${escapeBuildConfigValue(spotifyClientId)}\""
         buildConfigField "String", "SPOTIFY_CLIENT_SECRET", "\"${escapeBuildConfigValue(spotifyClientSecret)}\""
+        buildConfigField "String", "SPOTIFY_REDIRECT_URI", "\"${escapeBuildConfigValue(spotifyRedirectUri)}\""
     }
 
     buildTypes {

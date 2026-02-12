@@ -10,27 +10,53 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 
 class SearchResultsAdapter(
-    private val onPlayClicked: (SearchTrack) -> Unit,
-    private val onAddClicked: (SearchTrack) -> Unit
-) : RecyclerView.Adapter<SearchResultsAdapter.TrackViewHolder>() {
+    private val onTrackClicked: (SearchTrack) -> Unit,
+    private val onTrackAddClicked: (SearchTrack) -> Unit,
+    private val onArtistClicked: (SearchArtist) -> Unit,
+    private val onAlbumClicked: (SearchAlbum) -> Unit
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    private val tracks = mutableListOf<SearchTrack>()
+    private val items = mutableListOf<SearchListItem>()
 
-    fun submitList(newTracks: List<SearchTrack>) {
-        tracks.clear()
-        tracks.addAll(newTracks)
+    fun submitList(newItems: List<SearchListItem>) {
+        items.clear()
+        items.addAll(newItems)
         notifyDataSetChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TrackViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_search_track, parent, false)
-        return TrackViewHolder(view)
+    override fun getItemCount(): Int = items.size
+
+    override fun getItemViewType(position: Int): Int {
+        return when (items[position]) {
+            is SearchListItem.TrackItem -> viewTypeTrack
+            is SearchListItem.ArtistItem -> viewTypeArtist
+            is SearchListItem.AlbumItem -> viewTypeAlbum
+        }
     }
 
-    override fun getItemCount(): Int = tracks.size
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            viewTypeTrack -> TrackViewHolder(
+                inflater.inflate(R.layout.item_search_track, parent, false)
+            )
 
-    override fun onBindViewHolder(holder: TrackViewHolder, position: Int) {
-        holder.bind(tracks[position])
+            viewTypeArtist -> ArtistViewHolder(
+                inflater.inflate(R.layout.item_search_artist, parent, false)
+            )
+
+            else -> AlbumViewHolder(
+                inflater.inflate(R.layout.item_search_album, parent, false)
+            )
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = items[position]) {
+            is SearchListItem.TrackItem -> (holder as TrackViewHolder).bind(item.track)
+            is SearchListItem.ArtistItem -> (holder as ArtistViewHolder).bind(item.artist)
+            is SearchListItem.AlbumItem -> (holder as AlbumViewHolder).bind(item.album)
+        }
     }
 
     inner class TrackViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -51,8 +77,47 @@ class SearchResultsAdapter(
             }
             imageCover.load(track.albumImageUrl)
 
-            buttonPlay.setOnClickListener { onPlayClicked(track) }
-            buttonAdd.setOnClickListener { onAddClicked(track) }
+            itemView.setOnClickListener { onTrackClicked(track) }
+            buttonPlay.setOnClickListener { onTrackClicked(track) }
+            buttonAdd.setOnClickListener { onTrackAddClicked(track) }
         }
+    }
+
+    inner class ArtistViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val imageCover: ImageView = itemView.findViewById(R.id.imageSearchArtist)
+        private val textName: TextView = itemView.findViewById(R.id.textSearchArtistName)
+        private val textMeta: TextView = itemView.findViewById(R.id.textSearchArtistMeta)
+
+        fun bind(artist: SearchArtist) {
+            imageCover.load(artist.imageUrl)
+            textName.text = artist.name
+            textMeta.text = artist.followers?.let {
+                itemView.context.getString(R.string.followers_label, it)
+            } ?: itemView.context.getString(R.string.artist_label)
+            itemView.setOnClickListener { onArtistClicked(artist) }
+        }
+    }
+
+    inner class AlbumViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val imageCover: ImageView = itemView.findViewById(R.id.imageSearchAlbum)
+        private val textName: TextView = itemView.findViewById(R.id.textSearchAlbumName)
+        private val textArtist: TextView = itemView.findViewById(R.id.textSearchAlbumArtist)
+        private val textMeta: TextView = itemView.findViewById(R.id.textSearchAlbumMeta)
+
+        fun bind(album: SearchAlbum) {
+            imageCover.load(album.imageUrl)
+            textName.text = album.name
+            textArtist.text = album.artist
+            val releaseDate = album.releaseDate?.takeIf { it.isNotBlank() } ?: "--"
+            val tracks = album.totalTracks?.toString() ?: "--"
+            textMeta.text = itemView.context.getString(R.string.album_meta_format, releaseDate, tracks)
+            itemView.setOnClickListener { onAlbumClicked(album) }
+        }
+    }
+
+    companion object {
+        private const val viewTypeTrack = 0
+        private const val viewTypeArtist = 1
+        private const val viewTypeAlbum = 2
     }
 }

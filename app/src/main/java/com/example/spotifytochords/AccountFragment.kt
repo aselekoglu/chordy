@@ -1,5 +1,6 @@
 package com.example.spotifytochords
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageButton
@@ -33,13 +34,11 @@ class AccountFragment : Fragment(R.layout.fragment_account) {
         recyclerLibrary.layoutManager = GridLayoutManager(requireContext(), 2)
         recyclerLibrary.adapter = adapter
 
-        val credentialsAction = {
-            (activity as? MainActivity)?.showCredentialsDialog {
-                refreshContent()
-            }
+        val openLogin = {
+            startActivity(Intent(requireContext(), SpotifyLoginActivity::class.java))
         }
-        buttonSettings.setOnClickListener { credentialsAction() }
-        buttonEditCredentials.setOnClickListener { credentialsAction() }
+        buttonSettings.setOnClickListener { openLogin() }
+        buttonEditCredentials.setOnClickListener { openLogin() }
 
         refreshContent()
     }
@@ -55,10 +54,16 @@ class AccountFragment : Fragment(R.layout.fragment_account) {
         if (tracks.isNotEmpty()) {
             imageAccountAvatar.load(tracks.first().albumImageUrl)
         }
-        textAccountMessage.text = if (ChordyRepository.hasCredentials(requireContext())) {
-            getString(R.string.feature_limited_preview)
+        val loggedIn = ChordyRepository.hasSpotifySession(requireContext())
+        textAccountMessage.text = if (loggedIn) {
+            getString(R.string.spotify_logged_in)
         } else {
-            getString(R.string.credentials_required)
+            getString(R.string.spotify_login_required)
+        }
+        buttonEditCredentials.text = if (loggedIn) {
+            getString(R.string.spotify_manage_login)
+        } else {
+            getString(R.string.spotify_login)
         }
     }
 }

@@ -10,6 +10,11 @@ import java.net.URLEncoder
 import java.net.URL
 import kotlin.math.min
 
+class SpotifyApiException(
+    val statusCode: Int,
+    message: String
+) : IOException(message)
+
 class SpotifyApiClient(
     private val clientId: String,
     private val clientSecret: String
@@ -31,6 +36,36 @@ class SpotifyApiClient(
         return json.optString("access_token")
             .takeIf { it.isNotBlank() }
             ?: throw IOException("Spotify access token was empty.")
+    }
+
+    fun exchangeAuthorizationCode(code: String, redirectUri: String, codeVerifier: String): SpotifyAuthToken {
+        val response = performRequest(
+            method = "POST",
+            url = "https://accounts.spotify.com/api/token",
+            body = buildString {
+                append("grant_type=authorization_code")
+                append("&code=").append(urlEncode(code))
+                append("&redirect_uri=").append(urlEncode(redirectUri))
+                append("&client_id=").append(urlEncode(clientId))
+                append("&code_verifier=").append(urlEncode(codeVerifier))
+            },
+            extraHeaders = mapOf("Content-Type" to "application/x-www-form-urlencoded")
+        )
+        return parseAuthToken(response)
+    }
+
+    fun refreshUserAccessToken(refreshToken: String): SpotifyAuthToken {
+        val response = performRequest(
+            method = "POST",
+            url = "https://accounts.spotify.com/api/token",
+            body = buildString {
+                append("grant_type=refresh_token")
+                append("&refresh_token=").append(urlEncode(refreshToken))
+                append("&client_id=").append(urlEncode(clientId))
+            },
+            extraHeaders = mapOf("Content-Type" to "application/x-www-form-urlencoded")
+        )
+        return parseAuthToken(response)
     }
 
     fun getTrackInfo(accessToken: String, trackId: String): TrackInfo {
@@ -123,13 +158,7 @@ class SpotifyApiClient(
     }
 
     fun searchTracks(accessToken: String, query: String, limit: Int = 15): List<SearchTrack> {
-        val encodedQuery = URLEncoder.encode(query, Charsets.UTF_8.name())
-        val response = performRequest(
-            method = "GET",
-            url = "https://api.spotify.com/v1/search?type=track&market=US&limit=$limit&q=$encodedQuery",
-            bearerToken = accessToken
-        )
-        val root = JSONObject(response)
+        val root = search(accessToken, query, "track", limit)
         val tracksArray = root.optJSONObject("tracks")?.optJSONArray("items") ?: JSONArray()
         val tracks = mutableListOf<SearchTrack>()
         for (index in 0 until tracksArray.length()) {
@@ -140,19 +169,103 @@ class SpotifyApiClient(
             val firstArtist = artistsArray.optJSONObject(0)?.optString("name").orEmpty()
             val albumJson = trackJson.optJSONObject("album")
             val album = albumJson?.optString("name")?.takeIf { it.isNotBlank() }
-            val images = albumJson?.optJSONArray("images") ?: JSONArray()
-            val imageUrl = images.optJSONObject(1)?.optString("url")
-                ?: images.optJSONObject(0)?.optString("url")
+            val imageUrl = readImageUrl(albumJson?.optJSONArray("images"))
             tracks += SearchTrack(
                 id = id,
                 name = trackJson.optString("name", "Unknown"),
                 artist = firstArtist.ifBlank { "Unknown Artist" },
                 album = album,
                 albumImageUrl = imageUrl,
-                previewUrl = trackJson.optString("preview_url").takeIf { !it.isNullOrBlank() }
+                previewUrl = readPreviewUrl(trackJson)
             )
         }
         return tracks
+    }
+
+    fun searchArtists(accessToken: String, query: String, limit: Int = 15): List<SearchArtist> {
+        val root = search(accessToken, query, "artist", limit)
+        val artistsArray = root.optJSONObject("artists")?.optJSONArray("items") ?: JSONArray()
+        val artists = mutableListOf<SearchArtist>()
+        for (index in 0 until artistsArray.length()) {
+            val artistJson = artistsArray.optJSONObject(index) ?: continue
+            val id = artistJson.optString("id").orEmpty()
+            if (id.isBlank()) continue
+            artists += SearchArtist(
+                id = id,
+                name = artistJson.optString("name", "Unknown Artist"),
+                imageUrl = readImageUrl(artistJson.optJSONArray("images")),
+                followers = artistJson.optJSONObject("followers")
+                    ?.optInt("total")
+                    ?.takeIf { it >= 0 }
+            )
+        }
+        return artists
+    }
+
+    fun searchAlbums(accessToken: String, query: String, limit: Int = 15): List<SearchAlbum> {
+        val root = search(accessToken, query, "album", limit)
+        val albumsArray = root.optJSONObject("albums")?.optJSONArray("items") ?: JSONArray()
+        val albums = mutableListOf<SearchAlbum>()
+        for (index in 0 until albumsArray.length()) {
+            val albumJson = albumsArray.optJSONObject(index) ?: continue
+            val id = albumJson.optString("id").orEmpty()
+            if (id.isBlank()) continue
+            val artistsArray = albumJson.optJSONArray("artists") ?: JSONArray()
+            val firstArtist = artistsArray.optJSONObject(0)?.optString("name").orEmpty()
+            val releaseDate = albumJson.optString("release_date").takeIf { !it.isNullOrBlank() }
+            albums += SearchAlbum(
+                id = id,
+                name = albumJson.optString("name", "Unknown Album"),
+                artist = firstArtist.ifBlank { "Unknown Artist" },
+                imageUrl = readImageUrl(albumJson.optJSONArray("images")),
+                releaseDate = releaseDate,
+                totalTracks = albumJson.optInt("total_tracks").takeIf { it >= 0 }
+            )
+        }
+        return albums
+    }
+
+    private fun search(accessToken: String, query: String, type: String, limit: Int): JSONObject {
+        val safeLimit = limit.coerceIn(1, 50)
+        val encodedQuery = URLEncoder.encode(query, Charsets.UTF_8.name())
+        val primaryUrl = "https://api.spotify.com/v1/search?type=$type&market=US&limit=$safeLimit&q=$encodedQuery"
+        return try {
+            JSONObject(
+                performRequest(
+                    method = "GET",
+                    url = primaryUrl,
+                    bearerToken = accessToken
+                )
+            )
+        } catch (exception: SpotifyApiException) {
+            val invalidLimit = exception.statusCode == 400 &&
+                (exception.message?.contains("invalid limit", ignoreCase = true) == true)
+            if (!invalidLimit) throw exception
+
+            // Retry once with a conservative limit and no explicit market.
+            val fallbackLimit = safeLimit.coerceAtMost(10).coerceAtLeast(1)
+            val fallbackUrl = "https://api.spotify.com/v1/search?type=$type&limit=$fallbackLimit&q=$encodedQuery"
+            JSONObject(
+                performRequest(
+                    method = "GET",
+                    url = fallbackUrl,
+                    bearerToken = accessToken
+                )
+            )
+        }
+    }
+
+    private fun readImageUrl(images: JSONArray?): String? {
+        images ?: return null
+        return images.optJSONObject(1)?.optString("url")
+            ?: images.optJSONObject(0)?.optString("url")
+    }
+
+    private fun readPreviewUrl(trackJson: JSONObject): String? {
+        val rawPreview = trackJson.optString("preview_url", "").trim()
+        if (rawPreview.isBlank() || rawPreview.equals("null", ignoreCase = true)) return null
+        if (!rawPreview.startsWith("https://") && !rawPreview.startsWith("http://")) return null
+        return rawPreview
     }
 
     private fun parseTimedElements(array: JSONArray?): List<TimedElement> {
@@ -199,8 +312,10 @@ class SpotifyApiClient(
             val responseCode = connection.responseCode
             val responseBody = readResponseBody(connection)
             if (responseCode !in 200..299) {
-                val message = parseApiError(responseBody).ifBlank { "HTTP $responseCode" }
-                throw IOException("Spotify API request failed ($responseCode): $message")
+                val message = parseApiError(responseBody)
+                    .ifBlank { connection.responseMessage.orEmpty() }
+                    .ifBlank { "HTTP $responseCode" }
+                throw SpotifyApiException(responseCode, "Spotify API request failed ($responseCode): $message")
             }
             return responseBody
         } finally {
@@ -228,6 +343,22 @@ class SpotifyApiClient(
         } catch (_: Exception) {
             body
         }
+    }
+
+    private fun parseAuthToken(body: String): SpotifyAuthToken {
+        val json = JSONObject(body)
+        val accessToken = json.optString("access_token")
+            .takeIf { it.isNotBlank() }
+            ?: throw IOException("Spotify auth response missing access token.")
+        return SpotifyAuthToken(
+            accessToken = accessToken,
+            refreshToken = json.optString("refresh_token").takeIf { !it.isNullOrBlank() },
+            expiresInSec = json.optInt("expires_in", 3600).coerceAtLeast(1)
+        )
+    }
+
+    private fun urlEncode(value: String): String {
+        return URLEncoder.encode(value, Charsets.UTF_8.name())
     }
 
     private fun InputStream.readTextUtf8(): String {

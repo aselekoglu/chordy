@@ -52,7 +52,16 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 }
             } catch (_: IllegalStateException) {
                 requireActivity().runOnUiThread {
-                    textHomeMessage.text = getString(R.string.credentials_required)
+                    textHomeMessage.text = getString(R.string.spotify_login_required)
+                    adapter.submitList(emptyList())
+                }
+            } catch (exception: SpotifyApiException) {
+                requireActivity().runOnUiThread {
+                    textHomeMessage.text = if (exception.statusCode == 401) {
+                        getString(R.string.spotify_login_required)
+                    } else {
+                        exception.message ?: getString(R.string.error_generic)
+                    }
                     adapter.submitList(emptyList())
                 }
             } catch (_: Exception) {
